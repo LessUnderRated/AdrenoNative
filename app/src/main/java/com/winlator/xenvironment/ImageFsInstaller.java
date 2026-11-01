@@ -87,24 +87,6 @@ public abstract class ImageFsInstaller {
         }
     }
 
-    // Modern flavor ships an additional bionic preload shipped as a flat asset
-    // (src/modern/assets/) until it's folded into redirect.tzst. Copy it next to
-    // the tarball-extracted variant so BionicProgramLauncherComponent can find it
-    private static void ensureBionicLib(Context context, File imagefs) {
-        if (BuildConfig.MODERN_ANDROID) {
-            File wxDest = new File(imagefs, "usr/lib/libredirect-bionic-wx.so");
-            if (!wxDest.exists()) {
-                FileUtils.copy(context, "libredirect-bionic-wx.so", wxDest);
-                chmod(wxDest);
-            }
-            File wxMinimalDest = new File(imagefs, "usr/lib/libredirect-bionic-wx-minimal.so");
-            if (!wxMinimalDest.exists()) {
-                FileUtils.copy(context, "libredirect-bionic-wx-minimal.so", wxMinimalDest);
-                chmod(wxMinimalDest);
-            }
-        }
-    }
-
     private static Future<Boolean> installFromAssetsFuture(
             final Context context,
             AssetManager assetManager,
@@ -125,7 +107,6 @@ public abstract class ImageFsInstaller {
             clearRootDir(context, rootDir);
             ensureSharedHomeRoot(context, rootDir);
             ensureProtonVersionSymlink(context, rootDir, wineVersion);
-            ensureBionicLib(context, rootDir);
 
             final byte compressionRatio = 22;
             String imagefsFile = containerVariant.equals(Container.GLIBC) ? "imagefs_gamenative.txz" : "imagefs_bionic.txz";
@@ -199,12 +180,13 @@ public abstract class ImageFsInstaller {
         try (InputStream in = ctx.getAssets().open(REDIRECT_ARCHIVE)) {
             TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, in, imagefs);
         } catch (IOException e) {
-            Log.e("ImageFsInstaller", "redirect deploy failed", e);
+            // GameNative's closed-source libredirect archive is not shipped; exec redirection is
+            // done by the open libadrenoexec.so shim from nativeLibraryDir instead.
+            Log.i("ImageFsInstaller", "redirect archive " + REDIRECT_ARCHIVE + " not bundled, skipping");
             return false;
         }
         chmod(new File(imagefs, "usr/lib/libredirect.so"));
         chmod(new File(imagefs, "usr/lib/libredirect-bionic.so"));
-        ensureBionicLib(ctx, imagefs);
         FileUtils.writeString(new File(imagefs, REDIRECT_STAMP), REDIRECT_ARCHIVE);
         return true;
     }
@@ -219,7 +201,7 @@ public abstract class ImageFsInstaller {
 
     private static void installGuestLibs(Context ctx) {
         File imagefs = new File(ctx.getFilesDir(), "imagefs");
-        if (!installRedirectLibs(ctx, imagefs)) return;
+        installRedirectLibs(ctx, imagefs); // optional, see installRedirectLibs
 
         // Extract extras.tzst - download from server for modern variant, use bundled assets for legacy
         if (app.gamenative.BuildConfig.MODERN_ANDROID) {

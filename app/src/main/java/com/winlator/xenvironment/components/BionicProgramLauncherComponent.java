@@ -94,18 +94,12 @@ public class BionicProgramLauncherComponent extends GuestProgramLauncherComponen
     public Container getContainer() { return this.container; }
     public void setContainer(Container container) { this.container = container; }
 
-    // Resolve which libredirect shim to preload. Normally the flavor default
-    // (PRELOAD_BIONIC_SO). When the container disables libredirect, modern falls
-    // back to the W^X-only minimal shim (still required to run Wine on a strict
-    // W^X kernel) and legacy preloads nothing. Returns null to preload nothing.
-    private String resolveLibredirectPreload(ImageFs imageFs) {
-        if ((container != null && container.isDisableLibredirect()) || isColorOs17()) {
-            if (BuildConfig.MODERN_ANDROID) {
-                return imageFs.getLibDir() + "/libredirect-bionic-wx-minimal.so";
-            }
-            return null;
-        }
-        return imageFs.getLibDir() + "/" + BuildConfig.PRELOAD_BIONIC_SO;
+    // Exec shim preloaded into every guest process: rewrites execve/posix_spawn of app-data
+    // executables to /system/bin/linker64 (see app/src/main/cpp/adrenoexec). Replaces
+    // GameNative's closed libredirect; required on targetSdk 29+. Returns null if missing.
+    private String resolveLibredirectPreload(Context context) {
+        File shim = new File(context.getApplicationInfo().nativeLibraryDir, "libadrenoexec.so");
+        return shim.exists() ? shim.getPath() : null;
     }
 
     static boolean isColorOs17() {
@@ -233,6 +227,7 @@ public class BionicProgramLauncherComponent extends GuestProgramLauncherComponen
     private int execGuestProgram() {
 
         final int MAX_PLAYERS = 4;
+        final String tmpDir = ImageFs.find(environment.getContext()).getRootDir().getPath() + "/tmp";
 
         // Get the number of enabled players directly from ControllerManager.
         for (int i = 0; i < MAX_PLAYERS; i++) {
@@ -289,13 +284,13 @@ public class BionicProgramLauncherComponent extends GuestProgramLauncherComponen
         if (renderer.contains("Mali"))
             envVars.put("BOX64_MMAP32", "0");
 
-        // libevshim defaults to GameNative's package dir; point it at ours (WinHandler gamepad_shm).
-        envVars.put("EVSHIM_BASE_PATH", context.getFilesDir().getPath());
         if (envVars.get("BOX64_MMAP32").equals("1") && !wineInfo.isArm64EC())
             envVars.put("WRAPPER_DISABLE_PLACED", "1");
 
         // Setting up essential environment variables for Wine
         envVars.put("HOME", imageFs.home_path);
+        // libevshim defaults to GameNative's package dir; point it at ours (WinHandler gamepad_shm).
+        envVars.put("EVSHIM_BASE_PATH", context.getFilesDir().getPath());
         envVars.put("USER", ImageFs.USER);
         envVars.put("TMPDIR", rootDir.getPath() + "/usr/tmp");
         new File(imageFs.home_path + "/.wine/drive_c" + rootDir.getPath() + "/usr/tmp").mkdirs();
@@ -391,7 +386,7 @@ public class BionicProgramLauncherComponent extends GuestProgramLauncherComponen
         }
         String sysvPath = imageFs.getLibDir() + "/libandroid-sysvshm.so";
         String evshimPath = context.getApplicationInfo().nativeLibraryDir + "/libevshim.so";
-        String replacePath = resolveLibredirectPreload(imageFs);
+        String replacePath = resolveLibredirectPreload(context);
 
         if (new File(sysvPath).exists()) {
             if (!ld_preload.isEmpty()) ld_preload += ":";
@@ -1029,13 +1024,13 @@ public class BionicProgramLauncherComponent extends GuestProgramLauncherComponen
     public String execShellCommand(String command, boolean includeStderr, EnvVars extraEnv, String[] unsetEnv) {
         Context context = environment.getContext();
         ImageFs imageFs = ImageFs.find(context);
-        // libevshim defaults to GameNative's package dir; point it at ours (WinHandler gamepad_shm).
-        envVars.put("EVSHIM_BASE_PATH", context.getFilesDir().getPath());
         File rootDir = imageFs.getRootDir();
         EnvVars envVars = new EnvVars();
         addBox64EnvVars(envVars, false);
 
         envVars.put("HOME", imageFs.home_path);
+        // libevshim defaults to GameNative's package dir; point it at ours (WinHandler gamepad_shm).
+        envVars.put("EVSHIM_BASE_PATH", context.getFilesDir().getPath());
         envVars.put("USER", ImageFs.USER);
         envVars.put("TMPDIR", imageFs.getRootDir().getPath() + "/tmp");
         envVars.put("DISPLAY", ":0");
@@ -1058,7 +1053,7 @@ public class BionicProgramLauncherComponent extends GuestProgramLauncherComponen
 
         String ld_preload = "";
         String sysvPath = imageFs.getLibDir() + "/libandroid-sysvshm.so";
-        String replacePath = resolveLibredirectPreload(imageFs);
+        String replacePath = resolveLibredirectPreload(context);
 
         if (new File(sysvPath).exists()) ld_preload += sysvPath;
 

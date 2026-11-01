@@ -131,7 +131,6 @@ android {
             targetSdk = 36
             ndk.abiFilters += listOf("arm64-v8a")
             buildConfigField("boolean", "MODERN_ANDROID", "true")
-            buildConfigField("String", "PRELOAD_BIONIC_SO", "\"libredirect-bionic-wx.so\"")
         }
     }
 
@@ -232,6 +231,15 @@ android {
 
     kotlinter {
         ignoreFormatFailures  = false
+    }
+
+    // Open exec shim (LD_PRELOAD) that runs app-data executables through linker64; replaces
+    // GameNative's closed libredirect. Built from source on every build.
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/adrenoexec/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     // externalNativeBuild {
