@@ -365,18 +365,6 @@ private fun UserLoginScreenContent(
                     ),
                 )
 
-                // Privacy Policy Button
-                val uriHandler = LocalUriHandler.current
-                TextButton(
-                    onClick = { uriHandler.openUri(Constants.Misc.PRIVACY_LINK) },
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant),
-                    shape = RoundedCornerShape(8.dp),
-                ) {
-                    Text(
-                        text = stringResource(R.string.login_privacy_policy),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
             }
 
             // Main Content
@@ -541,35 +529,9 @@ private fun UserLoginScreenContent(
                         .padding(top = 16.dp, bottom = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(
-                        text = stringResource(R.string.login_or_sign_in_with),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                     FlowRow(
                         horizontalArrangement = Arrangement.Center,
                     ) {
-                        TextButton(onClick = onLaunchEpic) {
-                            Text(
-                                text = "Epic",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                        TextButton(onClick = onLaunchGog) {
-                            Text(
-                                text = "GOG",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                        TextButton(onClick = onLaunchAmazon) {
-                            Text(
-                                text = "Amazon",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
                         TextButton(onClick = onContinueOffline) {
                             Text(
                                 text = stringResource(R.string.login_skip_login),

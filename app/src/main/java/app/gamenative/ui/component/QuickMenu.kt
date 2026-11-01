@@ -560,6 +560,14 @@ fun QuickMenu(
                 ),
             )
         }
+    }.filter {
+        // AdrenoNative keeps the essentials; editors, profiles and alternate modes are GameNative's.
+        it.id in setOf(
+            QuickMenuAction.KEYBOARD,
+            QuickMenuAction.INPUT_CONTROLS,
+            QuickMenuAction.TOUCHSCREEN_MODE,
+            QuickMenuAction.DISABLE_MOUSE,
+        )
     }
 
     // Created here rather than plumbed through XServerScreen: that composable
@@ -588,7 +596,7 @@ fun QuickMenu(
     var selectedTab by rememberSaveable {
         mutableIntStateOf(
             when {
-                PrefManager.quickMenuLastTab == QuickMenuTab.LSFG && !isLsfgAvailable -> QuickMenuTab.HUD
+                PrefManager.quickMenuLastTab != QuickMenuTab.CONTROLLER -> QuickMenuTab.HUD
                 PrefManager.quickMenuLastTab == QuickMenuTab.INVITE && inviteMenu == null -> QuickMenuTab.HUD
                 PrefManager.quickMenuLastTab == QuickMenuTab.POWER -> QuickMenuTab.HUD
                 PrefManager.quickMenuLastTab == QuickMenuTab.IMMERSIVE && immersiveControls == null -> QuickMenuTab.HUD
@@ -669,17 +677,9 @@ fun QuickMenu(
     // Only the tabs actually shown in the rail, in on-screen order — mirrors the conditions each
     // QuickMenuTabButton below is gated on (isLsfgAvailable, a renderer being available, etc).
     val availableTabs = remember(isLsfgAvailable, hasEffectsTab, immersiveControls, inviteMenu, isGamescopeSession)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           {
-        buildList {
-            add(QuickMenuTab.HUD)
-            add(QuickMenuTab.POWER)
-            if (isGamescopeSession) add(QuickMenuTab.GAMESCOPE)
-            if (isLsfgAvailable) add(QuickMenuTab.LSFG)
-            if (inviteMenu != null) add(QuickMenuTab.INVITE)
-            if (hasEffectsTab) add(QuickMenuTab.EFFECTS)
-            add(QuickMenuTab.CONTROLLER)
-            add(QuickMenuTab.TOOLS)
-            if (immersiveControls != null) add(QuickMenuTab.IMMERSIVE)
-        }
+        // AdrenoNative: performance HUD and controls only; the S26 profile owns power,
+        // frame generation, effects and gamescope.
+        listOf(QuickMenuTab.HUD, QuickMenuTab.CONTROLLER)
     }
 
     LaunchedEffect(Unit) {
@@ -875,74 +875,6 @@ fun QuickMenu(
                                     focusRequester = hudTabFocusRequester,
                                 )
                                 QuickMenuTabButton(
-                                    icon = Icons.Default.BatteryChargingFull,
-                                    contentDescriptionResId = R.string.power_control,
-                                    selected = selectedTab == QuickMenuTab.POWER,
-                                    accentColor = PluviaTheme.colors.accentPurple,
-                                    onSelected = {
-                                        selectedTab = QuickMenuTab.POWER
-                                        PrefManager.quickMenuLastTab = selectedTab
-                                    },
-                                    modifier = Modifier.width(56.dp),
-                                    focusRequester = powerTabFocusRequester,
-                                )
-                                if (isGamescopeSession) {
-                                    QuickMenuTabButton(
-                                        icon = Icons.Default.Monitor,
-                                        contentDescriptionResId = R.string.gamescope_tab_title,
-                                        selected = selectedTab == QuickMenuTab.GAMESCOPE,
-                                        accentColor = PluviaTheme.colors.accentPurple,
-                                        onSelected = {
-                                            selectedTab = QuickMenuTab.GAMESCOPE
-                                            PrefManager.quickMenuLastTab = selectedTab
-                                        },
-                                        modifier = Modifier.width(56.dp),
-                                        focusRequester = gamescopeTabFocusRequester,
-                                    )
-                                }
-                                if (isLsfgAvailable) {
-                                    QuickMenuTabButton(
-                                        icon = Icons.Default.Speed,
-                                        contentDescriptionResId = R.string.lsfg_tab_title,
-                                        selected = selectedTab == QuickMenuTab.LSFG,
-                                        accentColor = PluviaTheme.colors.accentPurple,
-                                        onSelected = {
-                                            selectedTab = QuickMenuTab.LSFG
-                                            PrefManager.quickMenuLastTab = selectedTab
-                                        },
-                                        modifier = Modifier.width(56.dp),
-                                        focusRequester = lsfgTabFocusRequester,
-                                    )
-                                }
-                                if (inviteMenu != null) {
-                                    QuickMenuTabButton(
-                                        icon = Icons.Default.PersonAdd,
-                                        contentDescriptionResId = R.string.steam_invite_tab_title,
-                                        selected = selectedTab == QuickMenuTab.INVITE,
-                                        accentColor = PluviaTheme.colors.accentPurple,
-                                        onSelected = {
-                                            selectedTab = QuickMenuTab.INVITE
-                                            PrefManager.quickMenuLastTab = selectedTab
-                                        },
-                                        modifier = Modifier.width(56.dp),
-                                        focusRequester = inviteTabFocusRequester,
-                                    )
-                                }
-                                if (hasEffectsTab) {
-                                    QuickMenuTabButton(
-                                        icon = Icons.Default.AutoFixHigh,
-                                        contentDescriptionResId = R.string.screen_effects,
-                                        selected = selectedTab == QuickMenuTab.EFFECTS,
-                                        accentColor = PluviaTheme.colors.accentPurple,
-                                        onSelected = {
-                                            selectedTab = QuickMenuTab.EFFECTS
-                                            PrefManager.quickMenuLastTab = selectedTab
-                                        },
-                                        modifier = Modifier.width(56.dp),
-                                        focusRequester = effectsTabFocusRequester,
-                                    )
-                                }
-                                QuickMenuTabButton(
                                     icon = Icons.Default.Gamepad,
                                     contentDescriptionResId = R.string.quick_menu_tab_controller,
                                     selected = selectedTab == QuickMenuTab.CONTROLLER,
@@ -954,29 +886,6 @@ fun QuickMenu(
                                     modifier = Modifier.width(56.dp),
                                     focusRequester = controllerTabFocusRequester,
                                 )
-                                QuickMenuTabButton(
-                                    icon = Icons.Default.BarChart,
-                                    contentDescriptionResId = R.string.task_manager,
-                                    selected = selectedTab == QuickMenuTab.TOOLS,
-                                    accentColor = PluviaTheme.colors.accentPurple,
-                                    onSelected = { selectedTab = QuickMenuTab.TOOLS },
-                                    modifier = Modifier.width(56.dp),
-                                    focusRequester = toolsTabFocusRequester,
-                                )
-                                if (immersiveControls != null) {
-                                    QuickMenuTabButton(
-                                        icon = Icons.Default.ViewInAr,
-                                        contentDescriptionResId = R.string.quick_menu_tab_immersive,
-                                        selected = selectedTab == QuickMenuTab.IMMERSIVE,
-                                        accentColor = PluviaTheme.colors.accentPurple,
-                                        onSelected = {
-                                            selectedTab = QuickMenuTab.IMMERSIVE
-                                            PrefManager.quickMenuLastTab = selectedTab
-                                        },
-                                        modifier = Modifier.width(56.dp),
-                                        focusRequester = immersiveTabFocusRequester,
-                                    )
-                                }
                             }
 
                             Box(

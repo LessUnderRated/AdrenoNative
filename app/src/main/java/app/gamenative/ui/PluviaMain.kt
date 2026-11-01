@@ -1,5 +1,6 @@
 package app.gamenative.ui
 
+import app.gamenative.ui.s26.S26Home
 import android.content.Context
 import android.app.Activity
 import android.content.Intent
@@ -2051,73 +2052,18 @@ fun PluviaMain(
                                     message = context.getString(R.string.main_recent_crash_message),
                                     confirmBtnText = context.getString(R.string.ok),
                                 )
-                            } else if (Membership.canPitch() &&
-                                PrefManager.hasAttemptedGameLaunch &&
-                                !MainViewModel.gamePlayedThisSession &&
-                                System.currentTimeMillis() - PrefManager.lastLaunchPitchTime >= LAUNCH_PITCH_COOLDOWN_MS
-                            ) {
-                                viewModel.setAnnoyingDialogShown(true)
-                                PrefManager.lastLaunchPitchTime = System.currentTimeMillis()
-                                membershipPitchTrigger = "launch"
-                                trackMembershipPrompt("membership_prompt_shown", "launch")
-                                msgDialogState = MessageDialogState(
-                                    visible = true,
-                                    type = DialogType.SUPPORT,
-                                    title = context.getString(R.string.main_thank_you_title),
-                                    message = Membership.pitchMessage(context),
-                                    confirmBtnText = context.getString(R.string.main_join_kofi),
-                                    dismissBtnText = context.getString(R.string.close),
-                                )
                             }
                         }
                     }
 
-                    HomeScreen(
-                        onClickPlay = { appId, asContainer ->
-                            trackGameLaunched(context, appId)
-                            viewModel.setLaunchedAppId(appId)
-                            viewModel.setBootToContainer(asContainer)
-                            viewModel.setTestGraphics(false)
-                            viewModel.setDiagnostics(false)
-                            viewModel.setDebugRun(false)
-                            viewModel.setOffline(isOffline)
-                            preLaunchApp(
-                                context = context,
-                                appId = appId,
-                                setLoadingDialogVisible = viewModel::setLoadingDialogVisible,
-                                setLoadingProgress = viewModel::setLoadingDialogProgress,
-                                setLoadingMessage = viewModel::setLoadingDialogMessage,
-                                setMessageDialogState = { msgDialogState = it },
-                                onSuccess = viewModel::launchApp,
-                                isOffline = isOffline,
-                                bootToContainer = asContainer,
-                            )
-                        },
-                        onTestGraphics = { appId ->
-                            viewModel.setLaunchedAppId(appId)
-                            viewModel.setBootToContainer(true)
-                            viewModel.setTestGraphics(true)
-                            viewModel.setDiagnostics(false)
-                            viewModel.setDebugRun(false)
-                            viewModel.setOffline(isOffline)
-                            preLaunchApp(
-                                context = context,
-                                appId = appId,
-                                setLoadingDialogVisible = viewModel::setLoadingDialogVisible,
-                                setLoadingProgress = viewModel::setLoadingDialogProgress,
-                                setLoadingMessage = viewModel::setLoadingDialogMessage,
-                                setMessageDialogState = { msgDialogState = it },
-                                onSuccess = viewModel::launchApp,
-                                isOffline = isOffline,
-                                bootToContainer = true,
-                            )
-                        },
-                        onPlayWithDiagnostics = { appId ->
+                    S26Home(
+                        isOffline = isOffline,
+                        onPlay = { appId ->
                             trackGameLaunched(context, appId)
                             viewModel.setLaunchedAppId(appId)
                             viewModel.setBootToContainer(false)
                             viewModel.setTestGraphics(false)
-                            viewModel.setDiagnostics(true)
+                            viewModel.setDiagnostics(false)
                             viewModel.setDebugRun(false)
                             viewModel.setOffline(isOffline)
                             preLaunchApp(
@@ -2132,39 +2078,8 @@ fun PluviaMain(
                                 bootToContainer = false,
                             )
                         },
-                        onAiDebugRun = { appId ->
-                            SupportSession.clearRun(appId)
-                            debugPreRunAppId = appId
-                            debugPreRunOffline = isOffline
-                            debugPreRunVisible = true
-                        },
-                        onClickExit = {
-                            if (!PrefManager.warnBeforeExit) {
-                                PluviaApp.events.emit(AndroidEvent.EndProcess)
-                            } else if (exitSnackbarVisible) {
-                                PluviaApp.events.emit(AndroidEvent.EndProcess)
-                            } else {
-                                exitSnackbarVisible = true
-                                SnackbarManager.show(context.getString(R.string.back_press_exit_warning))
-                            }
-                        },
-                        onChat = {
-                            navController.navigate(PluviaScreen.Chat.route(it))
-                        },
-                        onNavigateRoute = {
-                            navController.navigate(it)
-                        },
-                        onLogout = {
-                            SteamService.logOut()
-                        },
-                        onGoOnline = {
-                            navController.navigate(
-                                if (!SteamService.isLoggedIn) PluviaScreen.LoginUser.route
-                                else PluviaScreen.Home.route
-                            )
-                        },
-                        isOffline = isOffline,
-                        isSteamConnected = state.isSteamConnected,
+                        onSignOut = { SteamService.logOut() },
+                        onExit = { PluviaApp.events.emit(AndroidEvent.EndProcess) },
                     )
                 }
 
