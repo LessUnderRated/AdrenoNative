@@ -38,6 +38,7 @@ object Net {
 
     val http: OkHttpClient by lazy {
         OkHttpClient.Builder()
+            .addInterceptor(BlockedHostsInterceptor())
             .dns(fallbackDns)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS)

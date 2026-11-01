@@ -27,6 +27,7 @@ object KeyAttestationHelper {
     private const val TAG = "KeyAttestationHelper"
 
     private val httpClient = OkHttpClient.Builder()
+        .addInterceptor(BlockedHostsInterceptor())
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
         .build()
