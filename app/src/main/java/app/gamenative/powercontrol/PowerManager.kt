@@ -17,6 +17,7 @@ import app.gamenative.powercontrol.metrics.MetricsSnapshot
 import app.gamenative.powercontrol.metrics.PerformanceMetricsCollector
 import app.gamenative.powercontrol.profiles.CpuGovernor
 import app.gamenative.powercontrol.profiles.PerformancePreset
+import app.gamenative.profile.S26Profile
 import com.winlator.container.Container
 import com.winlator.core.ProcessHelper
 import com.winlator.winhandler.WinHandler
@@ -242,7 +243,12 @@ object PowerManager {
     /**
      * Get Driver Default Profile
      */
-    fun getDriverDefaultProfile(): PowerProfile = driver.getDefaultProfile()
+    fun getDriverDefaultProfile(): PowerProfile {
+        val profile = driver.getDefaultProfile()
+        if (!S26Profile.matches(appContext)) return profile
+        val isSamsungDriver = driver !is NoOpPerformanceDriver && driver !is PServerDriver
+        return S26Profile.tunePowerProfile(profile, isSamsungDriver)
+    }
 
     /**
      * True when the active profile has in-game power control enabled.

@@ -1,6 +1,7 @@
 package app.gamenative.utils
 
-import android.app.ActivityManager
+import app.gamenative.profile.S26Profile
+import kotlinx.serialization.json.jsonPrimitive
 import android.content.Context
 import android.os.Build
 import androidx.compose.ui.graphics.Color
@@ -17,15 +18,11 @@ import com.winlator.core.KeyValueSet
 import com.winlator.fexcore.FEXCorePresetManager
 import com.winlator.winhandler.WinHandler
 import java.util.Locale
-import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import timber.log.Timber
 
@@ -33,11 +30,8 @@ import timber.log.Timber
  * Service for fetching best configurations for games from GameNative API.
  */
 object BestConfigService {
-    private const val API_BASE_URL = "https://api.gamenative.app/api/best-config"
-    private val httpClient = Net.http
 
     // In-memory cache keyed by "${gameName}_${gpuName}"
-    private val cache = ConcurrentHashMap<String, BestConfigResponse>()
 
     /**
      * Data class for API response.
@@ -105,81 +99,17 @@ object BestConfigService {
         gpuName: String,
         gameStore: String,
     ): BestConfigResponse? = withContext(Dispatchers.IO) {
-        val cacheKey = "${gameName}_${gpuName}_${gameStore}"
-
-        // Check cache first
-        cache[cacheKey]?.let {
-            Timber.tag("BestConfigService").d("Using cached config for $cacheKey")
-            return@withContext it
-        }
-
-        try {
-            val requestBody = JSONObject().apply {
-                put("gameName", gameName)
-                put("gpuName", gpuName)
-                put("game_store", gameStore)
-                // Modern build can't run glibc containers — server should pick a config that
-                // doesn't require glibc when this is true.
-                put("modernBuild", BuildConfig.MODERN_ANDROID)
-                HardwareUtils.getSOCName()?.let { put("socModel", it) }
-                put("manufacturer", Build.MANUFACTURER)
-                put("model", Build.MODEL)
-                put("androidSdk", Build.VERSION.SDK_INT)
-                put("androidVersion", Build.VERSION.RELEASE)
-                put("appVersionCode", BuildConfig.VERSION_CODE)
-                val memInfo = ActivityManager.MemoryInfo()
-                (context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)?.getMemoryInfo(memInfo)
-                if (memInfo.totalMem > 0) put("ramTotalMb", memInfo.totalMem / (1024L * 1024L))
-                GPUInformation.getVersion(context)?.takeIf { it.isNotBlank() }?.let { put("gpuDriverVersion", it) }
-            }
-
-            PlayIntegrity.signingCertSha256?.let { requestBody.put("signingCertSha256", it) }
-
-            val attestation = KeyAttestationHelper.getAttestationFields("https://api.gamenative.app")
-            if (attestation != null) {
-                requestBody.put("nonce", attestation.first)
-                requestBody.put("attestationChain", org.json.JSONArray(attestation.second))
-            }
-
-            val mediaType = "application/json".toMediaType()
-            val bodyString = requestBody.toString()
-            val body = bodyString.toRequestBody(mediaType)
-
-            val integrityToken = PlayIntegrity.requestToken(bodyString.toByteArray())
-
-            val requestBuilder = Request.Builder()
-                .url(API_BASE_URL)
-                .post(body)
-                .header("Content-Type", "application/json")
-            if (integrityToken != null) {
-                requestBuilder.header("X-Integrity-Token", integrityToken)
-            }
-            val request = requestBuilder.build()
-
-            httpClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    Timber.tag("BestConfigService")
-                        .w("API request failed - HTTP ${response.code}")
-                    return@withContext null
-                }
-
-                val responseBody = response.body?.string() ?: return@withContext null
-                val jsonResponse = JSONObject(responseBody)
-
-                val bestConfigResponse = parseBestConfigResponse(jsonResponse, gameStore)
-
-                cache[cacheKey] = bestConfigResponse
-
-                Timber.tag("BestConfigService")
-                    .d("Fetched best config for $gameName on $gpuName (matchType: ${bestConfigResponse.matchType})")
-
-                bestConfigResponse
-            }
-        } catch (e: Exception) {
-            Timber.tag("BestConfigService")
-                .e(e, "Error fetching best config: ${e.message}")
-            null
-        }
+        // GameNative's best-config API is restricted to official builds and blocked here
+        // (BlockedHostsInterceptor). On the S26 the pinned local profile is the best config;
+        // elsewhere there is none and container defaults apply.
+        if (!S26Profile.matches(context)) return@withContext null
+        return@withContext BestConfigResponse(
+            bestConfig = S26Profile.containerConfig(),
+            matchType = "exact_gpu_match",
+            matchedGpu = GPUInformation.getRenderer(context).orEmpty(),
+            matchedDeviceId = null,
+            matchedStore = gameStore,
+        )
     }
 
     /**
@@ -279,13 +209,11 @@ object BestConfigService {
             filteredJson.put("dxwrapperConfig", kvs.toString())
         }
 
-        if (GPUInformation.isAdreno8EliteGen5(context) &&
-            !matched.matches(Regex(".*adreno.*\\b8(4[0-9]|5[0-9])\\b.*"))
-        ) {
-            val kvs = KeyValueSet(filteredJson.optString("graphicsDriverConfig", ""))
-            kvs.put("version", "Turnip Adreno Driver T26 (@Mr_Purple_666)")
-            filteredJson.put("graphicsDriverConfig", kvs.toString())
-            filteredJson.put("graphicsDriverVersion", "Turnip Adreno Driver T26 (@Mr_Purple_666)")
+        if (S26Profile.matches(context)) {
+            // The S26 always runs the pinned stack, whatever an imported config says.
+            S26Profile.containerConfig().forEach { (key, value) ->
+                filteredJson.put(key, value.jsonPrimitive.content)
+            }
         }
 
         if (GPUInformation.isAdreno8Elite(context) &&

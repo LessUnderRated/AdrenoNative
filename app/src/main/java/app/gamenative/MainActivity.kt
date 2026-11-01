@@ -1,5 +1,6 @@
 package app.gamenative
 
+import app.gamenative.profile.S26Profile
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.ComponentCallbacks2
@@ -269,6 +270,7 @@ class MainActivity : ComponentActivity() {
 
         // Prevent device from sleeping while app is open
         AppUtils.keepScreenOn(this)
+        if (S26Profile.matches(this)) S26Profile.applyDisplayMode(this)
 
         // startOrientator() // causes memory leak since activity restarted every orientation change
         PluviaApp.events.on<AndroidEvent.SetSystemUIVisibility, Unit>(onSetSystemUi)

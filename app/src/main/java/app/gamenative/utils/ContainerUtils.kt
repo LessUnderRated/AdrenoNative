@@ -1,5 +1,6 @@
 package app.gamenative.utils
 
+import app.gamenative.profile.S26Profile
 import android.content.Context
 import android.os.Build
 import app.gamenative.BuildConfig
@@ -41,7 +42,7 @@ object ContainerUtils {
     )
 
     const val WRAPPER_TURNIP_CAPABLE = "Turnip v26.2.0 R4"
-    const val WRAPPER_ADRENO_8ELITE_GEN5 = "Turnip Adreno Driver T26 (@Mr_Purple_666)"
+    const val WRAPPER_ADRENO_8ELITE_GEN5 = S26Profile.DRIVER
     const val WRAPPER_ADRENO_8ELITE = "Turnip Gen8 V30"
     const val WRAPPER_ADRENO_A12 = "Turnip v26.1.0 A12 Fix"
 
@@ -71,13 +72,14 @@ object ContainerUtils {
             DefaultVersion.WRAPPER = WRAPPER_ADRENO_A12
             DefaultVersion.STEAM_TYPE = Container.STEAM_TYPE_HEADLESS
             DefaultVersion.ASYNC_CACHE = "1"
-        } else if (GPUInformation.isAdreno8EliteGen5(context)) {
+        } else if (S26Profile.matches(context)) {
+            // Galaxy S26 / Adreno 840: the pinned stack, see S26Profile.
             DefaultVersion.VARIANT = Container.BIONIC
-            DefaultVersion.WINE_VERSION = "proton-11.0-2-arm64ec-9"
-            DefaultVersion.DEFAULT_GRAPHICS_DRIVER = "Wrapper"
-            DefaultVersion.DXVK = "2.4.1-gplasync"
-            DefaultVersion.VKD3D = "2.14.1"
-            DefaultVersion.WRAPPER = WRAPPER_ADRENO_8ELITE_GEN5
+            DefaultVersion.WINE_VERSION = S26Profile.PROTON
+            DefaultVersion.DEFAULT_GRAPHICS_DRIVER = S26Profile.GRAPHICS_DRIVER
+            DefaultVersion.DXVK = S26Profile.DXVK
+            DefaultVersion.VKD3D = S26Profile.VKD3D
+            DefaultVersion.WRAPPER = S26Profile.DRIVER
             DefaultVersion.STEAM_TYPE = Container.STEAM_TYPE_HEADLESS
             DefaultVersion.ASYNC_CACHE = "1"
         } else if (GPUInformation.isAdreno8Elite(context)) {
