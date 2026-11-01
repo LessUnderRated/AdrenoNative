@@ -832,8 +832,9 @@ class BestConfigServiceTest {
         } else {
             assertTrue("Hades2 Adreno835 family result should not be empty", hades2Adreno835Result?.isNotEmpty() == true) // wineVersion filled in for glibc
         }
-        assertNotNull("Hades2 Adreno735 exact result should not be null", hades2Adreno735Result)
-        assertTrue("Hades2 Adreno735 exact result should not be empty", hades2Adreno735Result?.isNotEmpty() == true)
+        // The Adreno 735 fixture pins turnip25.3.0_R3_Auto, which manifest.json (A8xx drivers only)
+        // does not ship, so the config is rejected rather than applied with a missing driver.
+        assertTrue("Hades2 Adreno735 config with an unshipped driver should be rejected", hades2Adreno735Result.isNullOrEmpty())
         assertNotNull("Hades2 MaliGc824 fallback result should not be null", hades2MaliGc824Result)
         assertTrue("Hades2 MaliGc824 fallback result should not be empty", hades2MaliGc824Result?.isNotEmpty() == true)
     }

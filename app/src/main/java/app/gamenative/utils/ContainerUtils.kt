@@ -46,8 +46,13 @@ object ContainerUtils {
     const val WRAPPER_ADRENO_8ELITE = "Turnip Gen8 V30"
     const val WRAPPER_ADRENO_A12 = "Turnip v26.1.0 A12 Fix"
 
+    /**
+     * Default drivers for the supported (A8xx) GPUs; each must be a manifest.json id so a fresh
+     * install can download it. WRAPPER_TURNIP_CAPABLE (Adreno 6xx/7xx) and WRAPPER_ADRENO_A12 are
+     * left out on purpose: those GPUs are unsupported and their drivers are not in the manifest.
+     */
     val wrapperDriverDefaults: List<String> =
-        listOf(WRAPPER_TURNIP_CAPABLE, WRAPPER_ADRENO_8ELITE_GEN5, WRAPPER_ADRENO_8ELITE, WRAPPER_ADRENO_A12)
+        listOf(WRAPPER_ADRENO_8ELITE_GEN5, WRAPPER_ADRENO_8ELITE)
 
     fun setContainerDefaults(context: Context) {
         // Override default driver and DXVK version based on Turnip capability
