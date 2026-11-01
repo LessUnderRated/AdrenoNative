@@ -239,10 +239,10 @@ public class BionicProgramLauncherComponent extends GuestProgramLauncherComponen
             String memPath;
             if (i == 0) {
                 // Player 1 uses the original, non-numbered path that is known to work.
-                memPath = "/data/data/app.gamenative/files/imagefs/tmp/gamepad.mem";
+                memPath = tmpDir + "/gamepad.mem";
             } else {
                 // Players 2, 3, 4 use a 1-based index.
-                memPath = "/data/data/app.gamenative/files/imagefs/tmp/gamepad" + i + ".mem";
+                memPath = tmpDir + "/gamepad" + i + ".mem";
             }
 
             File memFile = new File(memPath);
@@ -289,6 +289,8 @@ public class BionicProgramLauncherComponent extends GuestProgramLauncherComponen
         if (renderer.contains("Mali"))
             envVars.put("BOX64_MMAP32", "0");
 
+        // libevshim defaults to GameNative's package dir; point it at ours (WinHandler gamepad_shm).
+        envVars.put("EVSHIM_BASE_PATH", context.getFilesDir().getPath());
         if (envVars.get("BOX64_MMAP32").equals("1") && !wineInfo.isArm64EC())
             envVars.put("WRAPPER_DISABLE_PLACED", "1");
 
@@ -1027,6 +1029,8 @@ public class BionicProgramLauncherComponent extends GuestProgramLauncherComponen
     public String execShellCommand(String command, boolean includeStderr, EnvVars extraEnv, String[] unsetEnv) {
         Context context = environment.getContext();
         ImageFs imageFs = ImageFs.find(context);
+        // libevshim defaults to GameNative's package dir; point it at ours (WinHandler gamepad_shm).
+        envVars.put("EVSHIM_BASE_PATH", context.getFilesDir().getPath());
         File rootDir = imageFs.getRootDir();
         EnvVars envVars = new EnvVars();
         addBox64EnvVars(envVars, false);

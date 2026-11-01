@@ -12,7 +12,6 @@ import app.gamenative.powercontrol.autotuning.PerformanceAutoTuner
 import app.gamenative.powercontrol.drivers.NoOpPerformanceDriver
 import app.gamenative.powercontrol.drivers.PServerDriver
 import app.gamenative.powercontrol.drivers.PerformanceDriver
-import app.gamenative.powercontrol.drivers.SamsungPerformanceDriver
 import app.gamenative.powercontrol.fan.FanController
 import app.gamenative.powercontrol.metrics.MetricsSnapshot
 import app.gamenative.powercontrol.metrics.PerformanceMetricsCollector
@@ -200,9 +199,9 @@ object PowerManager {
     fun initialize(context: Context) {
         appContext = context.applicationContext
         driver = when {
-            SamsungPerformanceDriver.isSamsungDevice() -> {
-                val samsungDriver = SamsungPerformanceDriver(appContext)
-                if (samsungDriver.isDriverSupported()) {
+            Build.MANUFACTURER.equals("samsung", ignoreCase = true) -> {
+                val samsungDriver = createSamsungDriver(appContext)
+                if (samsungDriver?.isDriverSupported() == true) {
                     Timber.tag("PowerManager").i("Using Samsung Performance Driver")
                     samsungDriver
                 } else {
@@ -219,7 +218,25 @@ object PowerManager {
                 NoOpPerformanceDriver()
             }
         }
-        currentProfile = driver.getDefaultProfile()
+        currentProfile = getDriverDefaultProfile()
+    }
+
+    /**
+     * The Samsung driver is compiled in only when the proprietary Performance SDK jar is present
+     * at build time (see app/build.gradle.kts), so it is looked up reflectively.
+     */
+    private fun createSamsungDriver(context: Context): PerformanceDriver? = try {
+        Class.forName("app.gamenative.powercontrol.drivers.SamsungPerformanceDriver")
+            .getConstructor(Context::class.java)
+            .newInstance(context) as PerformanceDriver
+    } catch (e: ClassNotFoundException) {
+        null
+    } catch (e: ReflectiveOperationException) {
+        Timber.tag("PowerManager").w(e, "Samsung Performance Driver failed to initialize")
+        null
+    } catch (e: LinkageError) {
+        Timber.tag("PowerManager").w(e, "Samsung Performance SDK classes missing")
+        null
     }
 
     /**

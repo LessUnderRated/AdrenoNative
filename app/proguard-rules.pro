@@ -70,3 +70,5 @@
 # Samsung Performance SDK (bundled stub jar, referenced by powercontrol Samsung driver)
 -keep class com.samsung.sdk.sperf.** { *; }
 -dontwarn com.samsung.sdk.sperf.**
+# Constructed reflectively by PowerManager when the optional Samsung SDK is built in
+-keep class app.gamenative.powercontrol.drivers.SamsungPerformanceDriver { <init>(android.content.Context); }

@@ -24,8 +24,10 @@ val keystoreProperties: Properties? = if (keystorePropertiesFile.exists()) {
 val posthogApiKey: String = project.findProperty("POSTHOG_API_KEY") as String? ?: System.getenv("POSTHOG_API_KEY") ?: ""
 val posthogHost: String = project.findProperty("POSTHOG_HOST") as String? ?: System.getenv("POSTHOG_HOST") ?: "https://us.i.posthog.com"
 
-val metaAppId: String = project.findProperty("META_APP_ID") as String? ?: System.getenv("META_APP_ID") ?: ""
-val productSku: String = project.findProperty("PRODUCT_SKU") as String? ?: System.getenv("PRODUCT_SKU") ?: ""
+// Samsung Performance SDK is proprietary and not shipped in this repo. Drop the jar at this path
+// (download from Samsung) to enable the Samsung CPU/GPU level driver; otherwise it is left out.
+val samsungPerfSdkJar = file("src/main/lib/perfsdk-v1.0.0.jar")
+val hasSamsungPerfSdk = samsungPerfSdkJar.exists()
 
 room {
     schemaDirectory("$projectDir/schemas")
@@ -56,7 +58,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "app.gamenative"
+        applicationId = "app.adrenonative"
 
         minSdk = 26
 
@@ -123,22 +125,6 @@ android {
 
     flavorDimensions += "androidApi"
     productFlavors {
-        create("legacy") {
-            dimension = "androidApi"
-            targetSdk = 28
-            ndk.abiFilters += listOf("arm64-v8a", "armeabi-v7a")
-            buildConfigField("boolean", "MODERN_ANDROID", "false")
-            buildConfigField("String", "PRELOAD_BIONIC_SO", "\"libredirect-bionic.so\"")
-        }
-        create("legacyXr") {
-            dimension = "androidApi"
-            targetSdk = 28
-            ndk.abiFilters += listOf("arm64-v8a", "armeabi-v7a")
-            buildConfigField("boolean", "MODERN_ANDROID", "false")
-            buildConfigField("String", "PRELOAD_BIONIC_SO", "\"libredirect-bionic.so\"")
-            buildConfigField("boolean", "XR_BUILD", "true")
-            manifestPlaceholders["screenOrientation"] = "landscape"
-        }
         create("modern") {
             dimension = "androidApi"
             minSdk = 29
@@ -146,19 +132,6 @@ android {
             ndk.abiFilters += listOf("arm64-v8a")
             buildConfigField("boolean", "MODERN_ANDROID", "true")
             buildConfigField("String", "PRELOAD_BIONIC_SO", "\"libredirect-bionic-wx.so\"")
-        }
-        create("modernXr") {
-            dimension = "androidApi"
-            minSdk = 29
-            targetSdk = 36
-            ndk.abiFilters += listOf("arm64-v8a")
-            buildConfigField("boolean", "MODERN_ANDROID", "true")
-            buildConfigField("String", "PRELOAD_BIONIC_SO", "\"libredirect-bionic-wx.so\"")
-            buildConfigField("boolean", "XR_BUILD", "true")
-            buildConfigField("boolean", "MODERN_XR", "true")
-            buildConfigField("String", "META_APP_ID", "\"$metaAppId\"")
-            buildConfigField("String", "PRODUCT_SKU", "\"$productSku\"")
-            manifestPlaceholders["screenOrientation"] = "landscape"
         }
     }
 
@@ -208,10 +181,6 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
-        // Exposes the openxr_loader_for_android AAR's native headers/lib to CMake, for the
-        // (not yet wired into the default build — see xrimmersive/CMakeLists.txt) immersive
-        // VR native module.
-        prefab = true
     }
 
     packaging {
@@ -247,116 +216,23 @@ android {
 
     // Configure Assets to be used in different variants
     sourceSets {
-        getByName("legacy") {
-            java.srcDir("src/nonXr/java")
-            assets {
-                srcDirs("src/legacy/assets", "src/main/assets")
-            }
-        }
-        getByName("legacyXr") {
-            java.srcDir("src/nonXr/java")
-            // Superset of src/legacy/AndroidManifest.xml plus the immersive VR entries —
-            // keep the shared parts in sync with that file.
-            manifest.srcFile("src/legacyXr/AndroidManifest.xml")
-            assets {
-                srcDirs("src/legacy/assets", "src/main/assets")
-            }
-            jniLibs {
-                srcDirs("src/legacy/jniLibs", "src/legacyXr/jniLibs")
-            }
-        }
         getByName("modern") {
             java.srcDir("src/nonXr/java")
             assets {
                 srcDirs("src/modern/assets", "src/main/assets")
             }
         }
-        getByName("modernXr") {
-            assets {
-                srcDirs("src/modern/assets", "src/main/assets")
-            }
-            jniLibs {
-                setSrcDirs(listOf("src/modern/jniLibs", "src/modernXr/jniLibs"))
-            }
-        }
         getByName("debug") {
             assets.srcDir(copyDebugManifest)
+        }
+        if (hasSamsungPerfSdk) {
+            getByName("main").java.srcDir("src/samsungSdk/java")
         }
     }
 
     kotlinter {
         ignoreFormatFailures  = false
     }
-
-    val hostCanRunXrPayloadScripts = System.getProperty("os.name").startsWith("Windows")
-
-    tasks.register<Exec>("buildModernXrNative") {
-        enabled = hostCanRunXrPayloadScripts
-        commandLine(
-            "powershell",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-File",
-            rootProject.file("tools/build-xr-native.ps1").absolutePath,
-        )
-    }
-
-    tasks.register<Exec>("buildWindowsXrRuntime") {
-        enabled = hostCanRunXrPayloadScripts
-        commandLine(
-            "powershell",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-File",
-            rootProject.file("tools/build-windows-xr-runtime.ps1").absolutePath,
-        )
-    }
-
-    tasks.register<Exec>("stageWineXrBridge") {
-        enabled = hostCanRunXrPayloadScripts
-        dependsOn("buildModernXrNative")
-        val companion = providers.environmentVariable("GAMENATIVE_WINE_XR_BRIDGE")
-        doFirst {
-            check(companion.isPresent) { "GAMENATIVE_WINE_XR_BRIDGE must point to the ARM64X Wine builtin companion" }
-        }
-        commandLine(
-            "powershell",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-File",
-            rootProject.file("tools/stage-wine-xr-bridge.ps1").absolutePath,
-            "-CompanionPath",
-            companion.getOrElse(""),
-        )
-    }
-
-    tasks.register<Exec>("stageOpenComposite") {
-        enabled = hostCanRunXrPayloadScripts
-        commandLine(
-            "powershell",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-File",
-            rootProject.file("tools/stage-opencomposite.ps1").absolutePath,
-        )
-    }
-
-    tasks.register<Exec>("verifyModernXrPayload") {
-        enabled = hostCanRunXrPayloadScripts
-        dependsOn("buildModernXrNative", "buildWindowsXrRuntime", "stageWineXrBridge", "stageOpenComposite")
-        commandLine(
-            "powershell",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-File",
-            rootProject.file("tools/verify-xr-payload.ps1").absolutePath,
-        )
-    }
-
-    tasks.register("prepareModernXrPayload") {
-        dependsOn("verifyModernXrPayload")
-    }
-
 
     // externalNativeBuild {
     //   cmake {
@@ -391,17 +267,6 @@ android {
     // externalNativeBuild {
     //     cmake {
     //         path = file("src/main/cpp/CMakeLists.txt")
-    //         version = "3.22.1"
-    //     }
-    // }
-
-    // Meta Quest immersive launch mode's native OpenXR module. Same convention as the
-    // other native modules above: not part of the default build (native libs ship as
-    // prebuilt .so files in jniLibs/) — temporarily uncomment to build+test locally,
-    // then copy the resulting libxrimmersive.so into jniLibs/arm64-v8a/ and re-comment.
-    // externalNativeBuild {
-    //     cmake {
-    //         path = file("src/main/cpp/xrimmersive/CMakeLists.txt")
     //         version = "3.22.1"
     //     }
     // }
@@ -441,10 +306,6 @@ dependencies {
 
     // Split Modules
     implementation(libs.bundles.google)
-
-    // Official Khronos OpenXR loader (Apache-2.0) for the Meta Quest immersive launch mode's
-    // native module (app/src/main/cpp/xrimmersive) — not a Winlator/GameNativeXR dependency.
-    "modernXrImplementation"("org.khronos.openxr:openxr_loader_for_android:1.1.61")
 
     // Winlator
     implementation(libs.bundles.winlator)
@@ -510,9 +371,8 @@ dependencies {
 
     implementation("com.auth0.android:jwtdecode:2.0.2")
 
-    // Samsung Performance SDK
-    implementation(files("src/main/lib/perfsdk-v1.0.0.jar"))
-
-    "modernXrImplementation"("com.meta.horizon.platform.sdk:core-kotlin:0.2.2")
-    "modernXrImplementation"("com.meta.horizon.platform.sdk:iap-kotlin:0.2.2")
+    // Samsung Performance SDK (optional, see samsungPerfSdkJar)
+    if (hasSamsungPerfSdk) {
+        implementation(files(samsungPerfSdkJar))
+    }
 }
