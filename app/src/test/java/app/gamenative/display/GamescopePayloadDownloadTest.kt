@@ -149,6 +149,9 @@ class GamescopePayloadDownloadTest {
 
     /// Skips the test on a machine with no network, where the check would say nothing.
     private fun assumeNetwork() {
+        // Downloads the full archive from GameNative's CDN: opt-in (./gradlew ... -PnetworkTests)
+        // so the default unit-test run stays fast and offline.
+        assumeTrue("network tests disabled", System.getProperty("adreno.networkTests") == "true")
         val reachable = runCatching { head("${HOSTS[0]}/${GamescopePayload.ARCHIVE}").code }.isSuccess
         assumeTrue("No network: the published payload cannot be checked", reachable)
     }

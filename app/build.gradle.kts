@@ -203,6 +203,8 @@ android {
                 // Tests read the repo's manifest.json from disk; track it so edits re-run them
                 // instead of serving a stale cached result.
                 it.inputs.file(rootProject.file("manifest.json")).withPathSensitivity(PathSensitivity.RELATIVE)
+                // Tests that hit live servers run only with -PnetworkTests.
+                it.systemProperty("adreno.networkTests", project.hasProperty("networkTests").toString())
                 // Robolectric fetches android-all jars at test runtime; use the Central mirror
                 // from settings.gradle.kts so it isn't rate-limited (HTTP 429) on shared hosts.
                 it.systemProperty(

@@ -26,8 +26,8 @@ class CommunityConfigApplicationTest {
         """
         {
           "graphicsDriver": "wrapper",
-          "graphicsDriverVersion": "Turnip Adreno Driver T26 (@Mr_Purple_666)",
-          "graphicsDriverConfig": "version=Turnip Adreno Driver T26 (@Mr_Purple_666);presentMode=mailbox",
+          "graphicsDriverVersion": "Turnip Gen8 V37",
+          "graphicsDriverConfig": "version=Turnip Gen8 V37;presentMode=mailbox",
           "dxwrapper": "dxvk",
           "dxwrapperConfig": "version=2.4.1,async=1,vkd3dVersion=2.14.1",
           "startupSelection": 2,
@@ -136,9 +136,9 @@ class CommunityConfigApplicationTest {
         )
 
         assertEquals("wrapper", updated.graphicsDriver)
-        assertEquals("Turnip Adreno Driver T26 (@Mr_Purple_666)", updated.graphicsDriverVersion)
+        assertEquals("Turnip Gen8 V37", updated.graphicsDriverVersion)
         assertEquals(
-            "version=Turnip Adreno Driver T26 (@Mr_Purple_666);presentMode=mailbox",
+            "version=Turnip Gen8 V37;presentMode=mailbox",
             updated.graphicsDriverConfig,
         )
         assertEquals("dxvk", updated.dxwrapper)
@@ -221,12 +221,12 @@ class CommunityConfigApplicationTest {
         )
         assertEquals("wrapper", communityResult.config["graphicsDriver"])
         assertEquals(
-            "Turnip Adreno Driver T26 (@Mr_Purple_666)",
+            "Turnip Gen8 V37",
             communityResult.config["graphicsDriverVersion"],
         )
         assertTrue(
             (communityResult.config["graphicsDriverConfig"] as String)
-                .contains("Turnip Adreno Driver T26 (@Mr_Purple_666)"),
+                .contains("Turnip Gen8 V37"),
         )
         assertEquals("dxvk", communityResult.config["dxwrapper"])
         assertEquals(
